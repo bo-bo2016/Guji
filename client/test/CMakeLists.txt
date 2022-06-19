@@ -1,5 +1,0 @@
-cmake_minimum_required(VERSION 3.15)
-project(guji_test C)
-add_executable(guji_test test.c)
-target_link_libraries(guji_test PUBLIC guji)
-target_include_directories(guji_test PUBLIC ../include)
