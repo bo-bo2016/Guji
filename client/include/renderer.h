@@ -7,7 +7,11 @@
 
 VkInstance instance;
 VkSurfaceKHR surface;
-void Init(SDL_Window* window);
+VkPhysicalDevice phyDevice;
+void Init(SDL_Window *window);
+void createInstance(const char *extensions[], int *count);
+void createSurface(SDL_Window *window);
+void pickupPhysicalDevice();
 void Quit();
 
 #endif

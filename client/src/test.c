@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include "renderer.h"
 #include "SDL.h"
-int main(int argc,char* argv[])
+#include "SDL_vulkan.h"
+int main(int argc, char *argv[])
 {
     SDL_Init(SDL_INIT_EVERYTHING);
     SDL_Window *window = SDL_CreateWindow("hello world",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           800, 600,
                                           SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+    Init(window);
     short quit = 0;
     SDL_Event event;
     while (quit)
@@ -20,11 +22,10 @@ int main(int argc,char* argv[])
             }
         }
     }
-
-    Init(window);
     Quit();
     SDL_Quit();
     SDL_DestroyWindow(window);
     SDL_Quit();
+    printf("sucess!!");
     return 0;
 }
