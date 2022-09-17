@@ -14,7 +14,7 @@ typedef struct QueueFamilyIndices
 VkInstance instance;
 VkSurfaceKHR surface;
 VkPhysicalDevice phyDevice;
-int queueFamilyIndex;
+QueueFamilyIndices queueIndices;
 VkDevice device;
 VkQueue graphicsQueue;
 VkQueue presentQueue;
