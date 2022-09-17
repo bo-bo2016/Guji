@@ -33,6 +33,7 @@ int imageCount;
 VkImage *pImage;
 int imageViewCount;
 VkImageView *pImageView;
+
 void Init(SDL_Window *window);
 void Quit();
 void createInstance(const char *extensions[], int *count);
