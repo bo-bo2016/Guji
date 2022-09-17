@@ -26,8 +26,8 @@ void Init(SDL_Window *window)
     queuePhysicalDevice();
     createDevice();
     CHECK_NULL(device, "device");
-    vkGetDeviceQueue(device, queueIndices.graphicsIndices, 0, &graphicsQueue);
-    vkGetDeviceQueue(device, queueIndices.presentIndices, 0, &presentQueue);
+    vkGetDeviceQueue(device, queueFamilyIndex, 0, &graphicsQueue);
+    vkGetDeviceQueue(device, queueFamilyIndex, 0, &presentQueue);
     CHECK_NULL(graphicsQueue, "graphicQueue");
     CHECK_NULL(presentQueue, "presentQueue");
 }
@@ -63,9 +63,6 @@ void pickupPhysicalDevice()
     VkPhysicalDevice pDevices[count];
     vkEnumeratePhysicalDevices(instance, &count, pDevices);
     phyDevice = pDevices[0];
-    // VkPhysicalDeviceProperties *pros;
-    // vkGetPhysicalDeviceProperties(phyDevice, pros);
-    // printf("deviceName=%s", pros->deviceName);
 }
 void queuePhysicalDevice()
 {
@@ -74,21 +71,11 @@ void queuePhysicalDevice()
     VkQueueFamilyProperties families[count];
     vkGetPhysicalDeviceQueueFamilyProperties(phyDevice, &count, families);
     unsigned int idx = 0;
-    queueIndices.graphicsIndices = queueIndices.presentIndices = -1;
     for (int i = 0; i < count; ++i)
     {
-        if (families[i].queueFlags | VK_QUEUE_GRAPHICS_BIT)
+        if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            queueIndices.graphicsIndices = idx;
-        }
-        VkBool32 supported = VK_TRUE;
-        vkGetPhysicalDeviceSurfaceSupportKHR(phyDevice, idx, surface, &supported);
-        if (supported)
-        {
-            queueIndices.presentIndices = idx;
-        }
-        if (queueIndices.graphicsIndices >= 0 && queueIndices.presentIndices >= 0)
-        {
+            queueFamilyIndex = idx;
             break;
         }
         idx++;
@@ -96,44 +83,25 @@ void queuePhysicalDevice()
 }
 void createDevice()
 {
-    unsigned int count = queueIndices.graphicsIndices == queueIndices.presentIndices ? 1 : 2;
-    VkDeviceQueueCreateInfo queueInfos[count];
-    if (count == 1)
-    {
-        VkDeviceQueueCreateInfo info;
-        info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        float piority = 1.0;
-        info.queueFamilyIndex = queueIndices.graphicsIndices;
-        info.queueCount = 1;
-        info.pQueuePriorities = &piority;
-        queueInfos[0] = info;
-    }
-    else
-    {
-        VkDeviceQueueCreateInfo info1;
-        float piority = 1.0;
-        info1.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        info1.queueFamilyIndex = queueIndices.graphicsIndices;
-        info1.queueCount = 1;
-        info1.pQueuePriorities = &piority;
-        queueInfos[0] = info1;
-
-        VkDeviceQueueCreateInfo info2;
-        info2.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        info2.queueFamilyIndex = queueIndices.presentIndices;
-        info2.queueCount = 1;
-        info2.pQueuePriorities = &piority;
-        queueInfos[1] = info2;
-    }
+    VkDeviceQueueCreateInfo queueInfo = {};
+    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueInfo.queueFamilyIndex = queueFamilyIndex;
+    queueInfo.queueCount = 1;
+    float priority[] = {1.0};
+    queueInfo.pQueuePriorities = priority;
+    queueInfo.pNext = NULL;
 
     VkDeviceCreateInfo info;
-    const char *const extensions[] = {"VK_KHR_SWAPCHAIN_EXTENSION_NAME"};
     info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    info.queueCreateInfoCount = count;
-    info.pQueueCreateInfos = queueInfos;
+    info.queueCreateInfoCount = 1;
+    info.pQueueCreateInfos = &queueInfo;
     info.pNext = NULL;
     info.pEnabledFeatures = NULL;
-    info.enabledExtensionCount = 1;
-    info.ppEnabledExtensionNames = extensions;
+    info.enabledExtensionCount = 0;
+    info.ppEnabledExtensionNames = NULL;
+    info.enabledLayerCount = 0;
+    info.ppEnabledLayerNames = NULL;
+    info.flags = 0;
+    
     vkCreateDevice(phyDevice, &info, NULL, &device);
 }
