@@ -23,6 +23,19 @@ void Init(SDL_Window *window)
     CHECK_NULL(surface, "surface");
     pickupPhysicalDevice();
     CHECK_NULL(phyDevice, "phyDevice");
+    queuePhysicalDevice();
+    createDevice();
+    CHECK_NULL(device, "device");
+    vkGetDeviceQueue(device, queueIndices.graphicsIndices, 0, &graphicsQueue);
+    vkGetDeviceQueue(device, queueIndices.presentIndices, 0, &presentQueue);
+    CHECK_NULL(graphicsQueue, "graphicQueue");
+    CHECK_NULL(presentQueue, "presentQueue");
+}
+void Quit()
+{
+    vkDestroyDevice(device, NULL);
+    vkDestroySurfaceKHR(instance, surface, NULL);
+    vkDestroyInstance(instance, NULL);
 }
 void createInstance(const char *extensions[], int *count)
 {
@@ -31,10 +44,11 @@ void createInstance(const char *extensions[], int *count)
     VkInstanceCreateInfo info;
     info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     info.pApplicationInfo = NULL;
-    info.enabledExtensionCount = *count;
-    info.enabledLayerCount = 0;
-    info.ppEnabledExtensionNames = extensions;
     info.pNext = NULL;
+    info.flags = 0;
+    info.enabledExtensionCount = *count;
+    info.ppEnabledExtensionNames = extensions;
+    info.enabledLayerCount = 1;
     info.ppEnabledLayerNames = layers;
     vkCreateInstance(&info, NULL, &instance);
 }
@@ -53,8 +67,73 @@ void pickupPhysicalDevice()
     // vkGetPhysicalDeviceProperties(phyDevice, pros);
     // printf("deviceName=%s", pros->deviceName);
 }
-void Quit()
+void queuePhysicalDevice()
 {
-    vkDestroySurfaceKHR(instance, surface, NULL);
-    vkDestroyInstance(instance, NULL);
+    unsigned int count;
+    vkGetPhysicalDeviceQueueFamilyProperties(phyDevice, &count, NULL);
+    VkQueueFamilyProperties families[count];
+    vkGetPhysicalDeviceQueueFamilyProperties(phyDevice, &count, families);
+    unsigned int idx = 0;
+    queueIndices.graphicsIndices = queueIndices.presentIndices = -1;
+    for (int i = 0; i < count; ++i)
+    {
+        if (families[i].queueFlags | VK_QUEUE_GRAPHICS_BIT)
+        {
+            queueIndices.graphicsIndices = idx;
+        }
+        VkBool32 supported = VK_TRUE;
+        vkGetPhysicalDeviceSurfaceSupportKHR(phyDevice, idx, surface, &supported);
+        if (supported)
+        {
+            queueIndices.presentIndices = idx;
+        }
+        if (queueIndices.graphicsIndices >= 0 && queueIndices.presentIndices >= 0)
+        {
+            break;
+        }
+        idx++;
+    }
+}
+void createDevice()
+{
+    unsigned int count = queueIndices.graphicsIndices == queueIndices.presentIndices ? 1 : 2;
+    VkDeviceQueueCreateInfo queueInfos[count];
+    if (count == 1)
+    {
+        VkDeviceQueueCreateInfo info;
+        info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        float piority = 1.0;
+        info.queueFamilyIndex = queueIndices.graphicsIndices;
+        info.queueCount = 1;
+        info.pQueuePriorities = &piority;
+        queueInfos[0] = info;
+    }
+    else
+    {
+        VkDeviceQueueCreateInfo info1;
+        float piority = 1.0;
+        info1.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        info1.queueFamilyIndex = queueIndices.graphicsIndices;
+        info1.queueCount = 1;
+        info1.pQueuePriorities = &piority;
+        queueInfos[0] = info1;
+
+        VkDeviceQueueCreateInfo info2;
+        info2.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        info2.queueFamilyIndex = queueIndices.presentIndices;
+        info2.queueCount = 1;
+        info2.pQueuePriorities = &piority;
+        queueInfos[1] = info2;
+    }
+
+    VkDeviceCreateInfo info;
+    const char *const extensions[] = {"VK_KHR_SWAPCHAIN_EXTENSION_NAME"};
+    info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    info.queueCreateInfoCount = count;
+    info.pQueueCreateInfos = queueInfos;
+    info.pNext = NULL;
+    info.pEnabledFeatures = NULL;
+    info.enabledExtensionCount = 1;
+    info.ppEnabledExtensionNames = extensions;
+    vkCreateDevice(phyDevice, &info, NULL, &device);
 }

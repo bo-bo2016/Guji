@@ -10,9 +10,10 @@ int main(int argc, char *argv[])
                                           800, 600,
                                           SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
     Init(window);
-    short quit = 0;
+    printf("init sucess!\n");
+    int quit = 0;
     SDL_Event event;
-    while (quit)
+    while (quit <= 0)
     {
         while (SDL_PollEvent(&event))
         {
@@ -26,6 +27,6 @@ int main(int argc, char *argv[])
     SDL_Quit();
     SDL_DestroyWindow(window);
     SDL_Quit();
-    printf("sucess!!");
+    printf("quit sucess!\n");
     return 0;
 }
