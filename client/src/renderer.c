@@ -25,11 +25,11 @@ void Init(SDL_Window *window)
     CHECK_NULL(phyDevice, "phyDevice");
     queuePhysicalDevice();
     createDevice();
-    CHECK_NULL(device, "device");
-    vkGetDeviceQueue(device, queueIndices.graphicsIndices, 0, &graphicsQueue);
-    vkGetDeviceQueue(device, queueIndices.presentIndices, 0, &presentQueue);
-    CHECK_NULL(graphicsQueue, "graphicQueue");
-    CHECK_NULL(presentQueue, "presentQueue");
+    // CHECK_NULL(device, "device");
+    // vkGetDeviceQueue(device, queueIndices.graphicsIndices, 0, &graphicsQueue);
+    // vkGetDeviceQueue(device, queueIndices.presentIndices, 0, &presentQueue);
+    // CHECK_NULL(graphicsQueue, "graphicQueue");
+    // CHECK_NULL(presentQueue, "presentQueue");
 }
 void Quit()
 {
@@ -77,7 +77,7 @@ void queuePhysicalDevice()
     queueIndices.graphicsIndices = queueIndices.presentIndices = -1;
     for (int i = 0; i < count; ++i)
     {
-        if (families[i].queueFlags | VK_QUEUE_GRAPHICS_BIT)
+        if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
             queueIndices.graphicsIndices = idx;
         }
@@ -107,6 +107,7 @@ void createDevice()
         info.queueCount = 1;
         info.pQueuePriorities = &piority;
         info.flags = 0;
+        info.pNext = NULL;
         queueInfos[0] = info;
     }
     else
@@ -118,6 +119,7 @@ void createDevice()
         info1.queueCount = 1;
         info1.pQueuePriorities = &piority;
         info1.flags = 0;
+        info1.pNext = NULL;
         queueInfos[0] = info1;
 
         VkDeviceQueueCreateInfo info2;
@@ -126,6 +128,7 @@ void createDevice()
         info2.queueCount = 1;
         info2.pQueuePriorities = &piority;
         info2.flags = 0;
+        info2.pNext = NULL;
         queueInfos[1] = info2;
     }
 
