@@ -106,6 +106,7 @@ void createDevice()
         info.queueFamilyIndex = queueIndices.graphicsIndices;
         info.queueCount = 1;
         info.pQueuePriorities = &piority;
+        info.flags = 0;
         queueInfos[0] = info;
     }
     else
@@ -116,6 +117,7 @@ void createDevice()
         info1.queueFamilyIndex = queueIndices.graphicsIndices;
         info1.queueCount = 1;
         info1.pQueuePriorities = &piority;
+        info1.flags = 0;
         queueInfos[0] = info1;
 
         VkDeviceQueueCreateInfo info2;
@@ -123,17 +125,21 @@ void createDevice()
         info2.queueFamilyIndex = queueIndices.presentIndices;
         info2.queueCount = 1;
         info2.pQueuePriorities = &piority;
+        info2.flags = 0;
         queueInfos[1] = info2;
     }
 
     VkDeviceCreateInfo info;
-    const char *const extensions[] = {"VK_KHR_SWAPCHAIN_EXTENSION_NAME"};
     info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     info.queueCreateInfoCount = count;
     info.pQueueCreateInfos = queueInfos;
     info.pNext = NULL;
     info.pEnabledFeatures = NULL;
-    info.enabledExtensionCount = 1;
-    info.ppEnabledExtensionNames = extensions;
+    info.enabledExtensionCount = 0;
+    info.ppEnabledExtensionNames = NULL;
+    info.enabledLayerCount = 0;
+    info.ppEnabledLayerNames = NULL;
+    info.flags = 0;
+
     vkCreateDevice(phyDevice, &info, NULL, &device);
 }
