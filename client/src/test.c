@@ -4,13 +4,6 @@
 #include "SDL_vulkan.h"
 int main(int argc, char *argv[])
 {
-    int a[2] = {0, 1};
-    int *p = a;
-    for (int i = 0; i < 2; ++i)
-    {
-        printf("i=%d,v=%d \n", i, *(p + i));
-    }
-
     SDL_Init(SDL_INIT_EVERYTHING);
     SDL_Window *window = SDL_CreateWindow("hello world",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -18,6 +11,10 @@ int main(int argc, char *argv[])
                                           SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
     Init(window);
     printf("init sucess!\n");
+    CreateShaderModule("vert.spv", shaderModules);
+    CreateShaderModule("frag.spv", shaderModules + 1);
+    printf("shader loaded success!\n");
+    CreatePipeline(shaderModules[0], shaderModules[1]);
     int quit = 0;
     SDL_Event event;
     while (quit <= 0)

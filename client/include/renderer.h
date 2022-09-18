@@ -33,9 +33,15 @@ int imageCount;
 VkImage *pImage;
 int imageViewCount;
 VkImageView *pImageView;
+VkPipeline pipeline;
+VkShaderModule shaderModules[2];
+VkPipelineLayout layout;
 
 void Init(SDL_Window *window);
 void Quit();
+void CreatePipeline(VkShaderModule vertexShader, VkShaderModule fragShader);
+void CreateShaderModule(const char *fileName, VkShaderModule *shaderModule);
+
 void createInstance(const char *extensions[], int *count);
 void createSurface(SDL_Window *window);
 void pickupPhysicalDevice();
@@ -44,5 +50,6 @@ void createDevice();
 void createSwapchain();
 void querySwapchainRequiredInfo();
 void createImageView();
+void createLayout();
 int clamp(int value, int min, int max);
 #endif

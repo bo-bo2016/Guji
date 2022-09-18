@@ -1,11 +1,13 @@
 #include "renderer.h"
 #include <stdio.h>
+#include <sys/stat.h>
 
 #define CHECK_NULL(expr, name)         \
     if (!expr)                         \
     {                                  \
         printf("%s is NULL \n", name); \
     }
+#define MAXSIZE 1024
 void Init(SDL_Window *window)
 {
     // get extensions
@@ -40,18 +42,159 @@ void Init(SDL_Window *window)
     vkGetSwapchainImagesKHR(device, swapchain, &imageCount, imgs);
     pImage = imgs;
     createImageView();
+    createLayout();
+    CHECK_NULL(layout, "layout");
 }
 void Quit()
 {
+    vkDestroyPipelineLayout(device, layout, NULL);
+    vkDestroyPipeline(device, pipeline, NULL);
+    for (int i = 0; i < 2; ++i)
+    {
+        vkDestroyShaderModule(device, shaderModules[i], NULL);
+    }
     for (int i = 0; i < imageViewCount; i++)
     {
-        printf("aa");
         vkDestroyImageView(device, *(pImageView + i), NULL);
     }
     vkDestroyDevice(device, NULL);
     vkDestroySurfaceKHR(instance, surface, NULL);
     vkDestroyInstance(instance, NULL);
 }
+void CreatePipeline(VkShaderModule vertexShader, VkShaderModule fragShader)
+{
+    VkGraphicsPipelineCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo;
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.pNext = NULL;
+    vertexInputInfo.flags = 0;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = NULL;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = NULL;
+    info.pVertexInputState = &vertexInputInfo;
+
+    VkPipelineInputAssemblyStateCreateInfo inputAsmInfo;
+    inputAsmInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAsmInfo.pNext = NULL;
+    inputAsmInfo.flags = 0;
+    inputAsmInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAsmInfo.primitiveRestartEnable = VK_FALSE;
+    info.pInputAssemblyState = &inputAsmInfo;
+
+    VkPipelineShaderStageCreateInfo stageInfos[2];
+    stageInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfos[0].pNext = NULL;
+    stageInfos[0].flags = 0;
+    stageInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stageInfos[0].module = shaderModules[0];
+    stageInfos[0].pName = "main";
+
+    stageInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfos[1].pNext = NULL;
+    stageInfos[1].flags = 0;
+    stageInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stageInfos[1].module = shaderModules[1];
+    stageInfos[1].pName = "main";
+    info.stageCount = 2;
+    info.pStages = stageInfos;
+
+    VkPipelineViewportStateCreateInfo viewportState;
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.pNext = NULL;
+    viewportState.flags = 0;
+    viewportState.viewportCount = 1;
+    VkViewport viewport;
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = requiredInfo.extent.width;
+    viewport.height = requiredInfo.extent.height;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+    viewportState.pViewports = &viewport;
+    VkRect2D scissor;
+    VkOffset2D offset;
+    offset.x = 0;
+    offset.y = 0;
+    scissor.offset = offset;
+    scissor.extent = requiredInfo.extent;
+    viewportState.scissorCount = 1;
+    viewportState.pScissors = &scissor;
+    info.pViewportState = &viewportState;
+
+    VkPipelineRasterizationStateCreateInfo rastInfo;
+    rastInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rastInfo.pNext = NULL;
+    rastInfo.flags = 0;
+    rastInfo.depthClampEnable = VK_FALSE;
+    rastInfo.rasterizerDiscardEnable = VK_FALSE;
+    rastInfo.cullMode = VK_CULL_MODE_NONE;
+    rastInfo.polygonMode = VK_POLYGON_MODE_FILL;
+    rastInfo.depthBiasEnable = VK_FALSE;
+    rastInfo.lineWidth = 1;
+    info.pRasterizationState = &rastInfo;
+
+    VkPipelineMultisampleStateCreateInfo multisample;
+    multisample.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample.pNext = NULL;
+    multisample.flags = 0;
+    multisample.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisample.sampleShadingEnable = VK_FALSE;
+    info.pMultisampleState = &multisample;
+
+    info.pDepthStencilState = NULL;
+
+    VkPipelineColorBlendStateCreateInfo colorBlend;
+    colorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlend.pNext = NULL;
+    colorBlend.flags = 0;
+    colorBlend.logicOpEnable = VK_FALSE;
+    VkPipelineColorBlendAttachmentState attBlendState;
+    attBlendState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlend.attachmentCount = 1;
+    colorBlend.pAttachments = &attBlendState;
+    info.pColorBlendState = &colorBlend;
+
+    info.layout = layout;
+    info.pDynamicState = NULL;
+    info.pTessellationState = NULL;
+    vkCreateGraphicsPipelines(device, NULL, 1, &info, NULL, &pipeline);
+}
+void CreateShaderModule(const char *filename, VkShaderModule *shaderModule)
+{
+    printf("%s\n", filename);
+    FILE *in_file = fopen(filename, "rb");
+    if (!in_file)
+    {
+        perror("fopen");
+        exit(EXIT_FAILURE);
+    }
+    struct stat sb;
+    if (stat(filename, &sb) == -1)
+    {
+        perror("stat");
+        exit(EXIT_FAILURE);
+    }
+    char *file_contents = malloc(sb.st_size);
+    fread(file_contents, sb.st_size, 1, in_file);
+    printf("read data: %s\n", file_contents);
+    fclose(in_file);
+
+    VkShaderModuleCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    info.codeSize = sb.st_size;
+    info.pCode = (const uint32_t *)file_contents;
+    vkCreateShaderModule(device, &info, NULL, shaderModule);
+
+    // free(file_contents);
+}
+
 void createInstance(const char *extensions[], int *count)
 {
     // validation layers
@@ -266,6 +409,18 @@ void createImageView()
         info.subresourceRange = range;
         vkCreateImageView(device, &info, NULL, pImageView + i);
     }
+}
+void createLayout()
+{
+    VkPipelineLayoutCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    info.setLayoutCount = 0;
+    info.pSetLayouts = NULL;
+    info.pushConstantRangeCount = 0;
+    info.pPushConstantRanges = NULL;
+    vkCreatePipelineLayout(device, &info, NULL, &layout);
 }
 int clamp(int value, int min, int max)
 {
