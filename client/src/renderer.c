@@ -37,9 +37,8 @@ void Init(SDL_Window *window)
     createSwapchain();
     CHECK_NULL(swapchain, "swapchain");
     vkGetSwapchainImagesKHR(device, swapchain, &imageCount, NULL);
-    VkImage imgs[imageCount];
-    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, imgs);
-    pImage = imgs;
+    pImage = malloc(sizeof(VkImage) * imageCount);
+    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, pImage);
     createImageView();
     createLayout();
     CHECK_NULL(layout, "layout");
@@ -54,9 +53,18 @@ void Init(SDL_Window *window)
     CHECK_NULL(cmdPool, "cmdPool");
     createCmdBuff();
     CHECK_NULL(cmdBuff, "cmdBuff");
+    createSemaphore(&imageAvaliableSem);
+    CHECK_NULL(imageAvaliableSem, "imageAvaliableSem");
+    createSemaphore(&presentFinishSem);
+    CHECK_NULL(presentFinishSem, "presentFinishSem");
+    createFench(&fench);
+    CHECK_NULL(fench, "fench");
 }
 void Quit()
 {
+    vkDestroyFence(device, fench, NULL);
+    vkDestroySemaphore(device, imageAvaliableSem, NULL);
+    vkDestroySemaphore(device, presentFinishSem, NULL);
     vkFreeCommandBuffers(device, cmdPool, 1, &cmdBuff);
     vkDestroyCommandPool(device, cmdPool, NULL);
     for (int i = 0; i < 2; ++i)
@@ -201,13 +209,12 @@ void CreatePipeline(VkShaderModule vertexShader, VkShaderModule fragShader)
     info.renderPass = renderPass;
     info.subpass = 0;
     info.basePipelineHandle = NULL;
-    info.basePipelineIndex = 0;
+    info.basePipelineIndex = -1;
 
     vkCreateGraphicsPipelines(device, NULL, 1, &info, NULL, &pipeline);
 }
 void CreateShaderModule(const char *filename, VkShaderModule *shaderModule)
 {
-    printf("%s\n", filename);
     FILE *in_file = fopen(filename, "rb");
     if (!in_file)
     {
@@ -222,7 +229,6 @@ void CreateShaderModule(const char *filename, VkShaderModule *shaderModule)
     }
     char *file_contents = malloc(sb.st_size);
     fread(file_contents, sb.st_size, 1, in_file);
-    printf("read data: %s\n", file_contents);
     fclose(in_file);
 
     VkShaderModuleCreateInfo info;
@@ -234,6 +240,45 @@ void CreateShaderModule(const char *filename, VkShaderModule *shaderModule)
     vkCreateShaderModule(device, &info, NULL, shaderModule);
 
     // free(file_contents);
+}
+void Render()
+{
+    vkResetFences(device, 1, &fench);
+
+    VkPipelineStageFlags flags = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkSubmitInfo submitInfo;
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pNext = NULL;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &imageAvaliableSem;
+    submitInfo.pWaitDstStageMask = &flags;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &cmdBuff;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &presentFinishSem;
+
+    int imageIndex = 0;
+    vkAcquireNextImageKHR(device, swapchain, UINT64_MAX, imageAvaliableSem, NULL, &imageIndex);
+    VkPresentInfoKHR presentInfo;
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = NULL;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &presentFinishSem;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = NULL;
+
+    vkResetCommandBuffer(cmdBuff, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    recordCmd(cmdBuff, framebuffs[imageIndex]);
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, fench);
+
+    vkQueuePresentKHR(presentQueue, &presentInfo);
+    vkWaitForFences(device, 1, &fench, VK_TRUE, UINT64_MAX);
+}
+void WaitIdle()
+{
+    vkDeviceWaitIdle(device);
 }
 
 void createInstance(const char *extensions[], int *count)
@@ -507,7 +552,7 @@ void createRenderPass()
 }
 void createFramebuffs()
 {
-    for (int i = 0; i < imageCount; ++i)
+    for (int i = 0; i < imageViewCount; ++i)
     {
         VkFramebufferCreateInfo info;
         info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -515,7 +560,7 @@ void createFramebuffs()
         info.flags = 0;
         info.renderPass = renderPass;
         info.attachmentCount = 1;
-        info.pAttachments = pImageView;
+        info.pAttachments = pImageView + i;
         info.width = requiredInfo.extent.width;
         info.height = requiredInfo.extent.height;
         info.layers = 1;
@@ -541,7 +586,7 @@ void createCmdBuff()
     info.commandBufferCount = 1;
     vkAllocateCommandBuffers(device, &info, &cmdBuff);
 }
-void recordCmd(VkCommandBuffer *buff, VkFramebuffer *fbo)
+void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
 {
     VkCommandBufferBeginInfo beginInfo;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -569,19 +614,36 @@ void recordCmd(VkCommandBuffer *buff, VkFramebuffer *fbo)
     renderPassBegin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBegin.pNext = NULL;
     renderPassBegin.renderPass = renderPass;
-    renderPassBegin.framebuffer = *fbo;
+    renderPassBegin.framebuffer = fbo;
     renderPassBegin.renderArea = area;
     renderPassBegin.clearValueCount = 1;
     renderPassBegin.pClearValues = &clearValue;
 
-    if (vkBeginCommandBuffer(*buff, &beginInfo) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(buff, &beginInfo) != VK_SUCCESS)
     {
         exit(EXIT_FAILURE);
     }
-    vkCmdBeginRenderPass(*buff, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdDraw(*buff, 3, 1, 0, 0);
-    vkCmdEndRenderPass(*buff);
-    vkEndCommandBuffer(*buff);
+    vkCmdBeginRenderPass(buff, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdDraw(buff, 3, 1, 0, 0);
+    vkCmdEndRenderPass(buff);
+    vkEndCommandBuffer(buff);
+}
+void createSemaphore(VkSemaphore *sem)
+{
+    VkSemaphoreCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    vkCreateSemaphore(device, &info, NULL, sem);
+}
+void createFench(VkFence *fen)
+{
+    VkFenceCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    vkCreateFence(device, &info, NULL, fen);
 }
 int clamp(int value, int min, int max)
 {

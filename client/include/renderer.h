@@ -40,11 +40,16 @@ VkRenderPass renderPass;
 VkFramebuffer framebuffs[2];
 VkCommandPool cmdPool;
 VkCommandBuffer cmdBuff;
+VkSemaphore imageAvaliableSem;
+VkSemaphore presentFinishSem;
+VkFence fench;
 
 void Init(SDL_Window *window);
 void Quit();
 void CreatePipeline(VkShaderModule vertexShader, VkShaderModule fragShader);
 void CreateShaderModule(const char *fileName, VkShaderModule *shaderModule);
+void Render();
+void WaitIdle();
 
 void createInstance(const char *extensions[], int *count);
 void createSurface(SDL_Window *window);
@@ -59,6 +64,8 @@ void createRenderPass();
 void createFramebuffs();
 void createCmdPool();
 void createCmdBuff();
-void recordCmd(VkCommandBuffer *cmdBuff, VkFramebuffer *fbo);
+void recordCmd(VkCommandBuffer cmdBuff, VkFramebuffer fbo);
+void createSemaphore();
+void createFench();
 int clamp(int value, int min, int max);
 #endif

@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
     CreateShaderModule("frag.spv", shaderModules + 1);
     printf("shader loaded success!\n");
     CreatePipeline(shaderModules[0], shaderModules[1]);
+   
     int quit = 0;
     SDL_Event event;
     while (quit <= 0)
@@ -26,7 +27,9 @@ int main(int argc, char *argv[])
                 quit = 1;
             }
         }
+        Render();
     }
+    WaitIdle();
     Quit();
     SDL_Quit();
     SDL_DestroyWindow(window);
