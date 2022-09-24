@@ -36,6 +36,10 @@ VkImageView *pImageView;
 VkPipeline pipeline;
 VkShaderModule shaderModules[2];
 VkPipelineLayout layout;
+VkRenderPass renderPass;
+VkFramebuffer framebuffs[2];
+VkCommandPool cmdPool;
+VkCommandBuffer cmdBuff;
 
 void Init(SDL_Window *window);
 void Quit();
@@ -51,5 +55,10 @@ void createSwapchain();
 void querySwapchainRequiredInfo();
 void createImageView();
 void createLayout();
+void createRenderPass();
+void createFramebuffs();
+void createCmdPool();
+void createCmdBuff();
+void recordCmd(VkCommandBuffer *cmdBuff, VkFramebuffer *fbo);
 int clamp(int value, int min, int max);
 #endif
