@@ -70,7 +70,6 @@ void Init(SDL_Window *window)
     vkMapMemory(device, vertexMem, 0, sizeof(vertices), 0, &data);
     memcpy(data, vertices, sizeof(vertices));
     vkUnmapMemory(device, vertexMem);
-
     createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &deviceBuff);
     CHECK_NULL(deviceBuff, "deviceBuff");
     allocateMem(deviceBuff, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &deviceMem);
@@ -104,9 +103,23 @@ void Init(SDL_Window *window)
     vkQueueSubmit(graphicsQueue, 1, &submitInfo, NULL);
     WaitIdle();
     vkFreeCommandBuffers(device, cmdPool, 1, &transferBuffer);
+
+    //indexBuff
+    createIndices();
+    createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, &indexBuff);
+    CHECK_NULL(indexBuff, "indexBuff");
+    allocateMem(indexBuff, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &indexMem);
+    CHECK_NULL(indexMem, "indexMem");
+    vkBindBufferMemory(device, indexBuff, indexMem, 0);
+    void *indexData;
+    vkMapMemory(device, indexMem, 0, sizeof(indices), 0, &indexData);
+    memcpy(indexData, indices, sizeof(indices));
+    vkUnmapMemory(device, indexMem);
 }
 void Quit()
 {
+    vkFreeMemory(device, indexMem, NULL);
+    vkDestroyBuffer(device, indexBuff, NULL);
     vkFreeMemory(device, deviceMem, NULL);
     vkDestroyBuffer(device, deviceBuff, NULL);
     vkFreeMemory(device, vertexMem, NULL);
@@ -657,10 +670,10 @@ void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
     area.extent = requiredInfo.extent;
 
     VkClearColorValue clearColorValue;
-    clearColorValue.float32[0] = 0.1f;
-    clearColorValue.float32[1] = 0.1f;
-    clearColorValue.float32[2] = 0.1f;
-    clearColorValue.float32[3] = 0.1f;
+    clearColorValue.float32[0] = 0.3f;
+    clearColorValue.float32[1] = 0.3f;
+    clearColorValue.float32[2] = 0.3f;
+    clearColorValue.float32[3] = 0.3f;
 
     VkClearValue clearValue;
     clearValue.color = clearColorValue;
@@ -682,7 +695,8 @@ void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
     vkCmdBindPipeline(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     VkDeviceSize size = (uint64_t)0;
     vkCmdBindVertexBuffers(buff, 0, 1, &deviceBuff, &size);
-    vkCmdDraw(buff, 3, 1, 0, 0);
+    vkCmdBindIndexBuffer(buff, indexBuff, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdDrawIndexed(buff, 6, 1, 0, 0, 0);
     vkCmdEndRenderPass(buff);
     vkEndCommandBuffer(buff);
 }
@@ -716,11 +730,26 @@ void createVertices()
     vertices[1].color.g = 1;
     vertices[1].color.b = 0;
 
-    vertices[2].position.x = 0;
+    vertices[2].position.x = 0.5;
     vertices[2].position.y = 0.5;
     vertices[2].color.r = 0;
     vertices[2].color.g = 0;
     vertices[2].color.b = 1;
+
+    vertices[3].position.x = -0.5;
+    vertices[3].position.y = 0.5;
+    vertices[3].color.r = 0;
+    vertices[3].color.g = 0;
+    vertices[3].color.b = 1;
+}
+void createIndices()
+{
+    indices[0] = 0;
+    indices[1] = 1;
+    indices[2] = 2;
+    indices[3] = 0;
+    indices[4] = 2;
+    indices[5] = 3;
 }
 void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes)
 {
