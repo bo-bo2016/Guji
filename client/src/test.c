@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
                 quit = 1;
             }
         }
-        Render();
+       Render();
     }
     WaitIdle();
     Quit();

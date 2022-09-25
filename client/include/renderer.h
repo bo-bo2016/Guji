@@ -66,6 +66,8 @@ VkSemaphore presentFinishSem;
 VkFence fench;
 VkBuffer vertexBuff;
 VkDeviceMemory vertexMem;
+VkBuffer deviceBuff;
+VkDeviceMemory deviceMem;
 MemRequiredInfo memReqInfo;
 Vertex vertices[3];
 
@@ -95,8 +97,8 @@ void createFench();
 void createVertices();
 void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes);
 void setVertexInputAttrDescription(VkVertexInputAttributeDescription *attrDes);
-void createVertexBuff(VkBufferUsageFlagBits flag,VkBuffer *buf);
-void queryMeminfo(VkBuffer buf,VkMemoryPropertyFlagBits flag);
-void allocateMem(VkBuffer buf,VkDeviceMemory *mem);
+void createBuffer(VkBufferUsageFlagBits flag, VkBuffer *buf);
+void queryMeminfo(VkBuffer buf, VkMemoryPropertyFlagBits flag);
+void allocateMem(VkBuffer buf, VkMemoryPropertyFlagBits flag, VkDeviceMemory *mem);
 int clamp(int value, int min, int max);
 #endif

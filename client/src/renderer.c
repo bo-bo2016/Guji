@@ -52,7 +52,7 @@ void Init(SDL_Window *window)
     }
     createCmdPool();
     CHECK_NULL(cmdPool, "cmdPool");
-    createCmdBuff();
+    createCmdBuff(&cmdBuff);
     CHECK_NULL(cmdBuff, "cmdBuff");
     createSemaphore(&imageAvaliableSem);
     CHECK_NULL(imageAvaliableSem, "imageAvaliableSem");
@@ -61,18 +61,54 @@ void Init(SDL_Window *window)
     createFench(&fench);
     CHECK_NULL(fench, "fench");
     createVertices();
-    createVertexBuff(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBuff);
+    createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &vertexBuff);
     CHECK_NULL(vertexBuff, "vertexBuff");
-    allocateMem(vertexBuff, &vertexMem);
+    allocateMem(vertexBuff, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexMem);
     CHECK_NULL(vertexMem, "vertexMem");
     vkBindBufferMemory(device, vertexBuff, vertexMem, 0);
     void *data;
     vkMapMemory(device, vertexMem, 0, sizeof(vertices), 0, &data);
     memcpy(data, vertices, sizeof(vertices));
     vkUnmapMemory(device, vertexMem);
+
+    createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &deviceBuff);
+    CHECK_NULL(deviceBuff, "deviceBuff");
+    allocateMem(deviceBuff, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &deviceMem);
+    CHECK_NULL(deviceMem, "deviceMem");
+    vkBindBufferMemory(device, deviceBuff, deviceMem, 0);
+    VkCommandBuffer transferBuffer;
+    createCmdBuff(&transferBuffer);
+    CHECK_NULL(transferBuffer, "transferBuffer");
+    VkCommandBufferBeginInfo beginInfo;
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.pNext = NULL;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.pInheritanceInfo = NULL;
+    vkBeginCommandBuffer(transferBuffer, &beginInfo);
+    VkBufferCopy region;
+    region.srcOffset = 0;
+    region.dstOffset = 0;
+    region.size = sizeof(vertices);
+    vkCmdCopyBuffer(transferBuffer, vertexBuff, deviceBuff, 1, &region);
+    vkEndCommandBuffer(transferBuffer);
+    VkSubmitInfo submitInfo;
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.pNext = NULL;
+    submitInfo.waitSemaphoreCount = 0;
+    submitInfo.pWaitSemaphores = NULL;
+    submitInfo.pWaitDstStageMask = NULL;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &transferBuffer;
+    submitInfo.signalSemaphoreCount = 0;
+    submitInfo.pSignalSemaphores = NULL;
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, NULL);
+    WaitIdle();
+    vkFreeCommandBuffers(device, cmdPool, 1, &transferBuffer);
 }
 void Quit()
 {
+    vkFreeMemory(device, deviceMem, NULL);
+    vkDestroyBuffer(device, deviceBuff, NULL);
     vkFreeMemory(device, vertexMem, NULL);
     vkDestroyBuffer(device, vertexBuff, NULL);
     vkDestroyFence(device, fench, NULL);
@@ -595,7 +631,7 @@ void createCmdPool()
     info.queueFamilyIndex = queueIndices.graphicsIndices;
     vkCreateCommandPool(device, &info, NULL, &cmdPool);
 }
-void createCmdBuff()
+void createCmdBuff(VkCommandBuffer *pCmdbuf)
 {
     VkCommandBufferAllocateInfo info;
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -603,7 +639,7 @@ void createCmdBuff()
     info.commandPool = cmdPool;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     info.commandBufferCount = 1;
-    vkAllocateCommandBuffers(device, &info, &cmdBuff);
+    vkAllocateCommandBuffers(device, &info, pCmdbuf);
 }
 void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
 {
@@ -645,7 +681,7 @@ void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
     vkCmdBeginRenderPass(buff, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
     VkDeviceSize size = (uint64_t)0;
-    vkCmdBindVertexBuffers(buff, 0, 1, &vertexBuff, &size);
+    vkCmdBindVertexBuffers(buff, 0, 1, &deviceBuff, &size);
     vkCmdDraw(buff, 3, 1, 0, 0);
     vkCmdEndRenderPass(buff);
     vkEndCommandBuffer(buff);
@@ -716,7 +752,7 @@ int clamp(int value, int min, int max)
     }
     return value;
 }
-void createVertexBuff(VkBufferUsageFlagBits flag, VkBuffer *buf)
+void createBuffer(VkBufferUsageFlagBits flag, VkBuffer *buf)
 {
     VkBufferCreateInfo info;
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -744,9 +780,9 @@ void queryMemInfo(VkBuffer buf, VkMemoryPropertyFlagBits flag)
         }
     }
 }
-void allocateMem(VkBuffer buf, VkDeviceMemory *mem)
+void allocateMem(VkBuffer buf, VkMemoryPropertyFlagBits flag, VkDeviceMemory *mem)
 {
-    queryMemInfo(buf, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    queryMemInfo(buf, flag);
     VkMemoryAllocateInfo info;
     info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     info.pNext = NULL;
