@@ -41,6 +41,13 @@ typedef struct MemRequiredInfo
     size_t size;
 } MemRequiredInfo;
 
+typedef struct Uniform
+{
+    float project[4 * 4];
+    float view[4 * 4];
+    float model[4 * 4];
+} Uniform;
+
 VkInstance instance;
 VkSurfaceKHR surface;
 VkPhysicalDevice phyDevice;
@@ -73,6 +80,12 @@ VkDeviceMemory deviceMem;
 MemRequiredInfo memReqInfo;
 Vertex vertices[4];
 uint16_t indices[6];
+VkBuffer uniformBuff;
+VkDeviceMemory uniformMem;
+Uniform ubo;
+VkDescriptorSetLayout setLayout;
+VkDescriptorPool desPool;
+VkDescriptorSet set;
 
 void Init(SDL_Window *window);
 void Quit();
@@ -89,7 +102,8 @@ void createDevice();
 void createSwapchain();
 void querySwapchainRequiredInfo();
 void createImageView();
-void createLayout();
+void createDescriptorSetLayout();
+void createLayout(VkDescriptorSetLayout setLayout);
 void createRenderPass();
 void createFramebuffs();
 void createCmdPool();
@@ -99,9 +113,12 @@ void createSemaphore();
 void createFench();
 void createVertices();
 void createIndices();
+void createUniform();
+void createDescriptorPool();
+void allocateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout setLayout);
 void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes);
 void setVertexInputAttrDescription(VkVertexInputAttributeDescription *attrDes);
-void createBuffer(VkBufferUsageFlagBits flag, VkBuffer *buf);
+void createBuffer(VkBufferUsageFlagBits flag, uint64_t size, VkBuffer *buf);
 void queryMeminfo(VkBuffer buf, VkMemoryPropertyFlagBits flag);
 void allocateMem(VkBuffer buf, VkMemoryPropertyFlagBits flag, VkDeviceMemory *mem);
 int clamp(int value, int min, int max);

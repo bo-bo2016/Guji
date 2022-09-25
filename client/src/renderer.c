@@ -41,7 +41,9 @@ void Init(SDL_Window *window)
     pImage = malloc(sizeof(VkImage) * imageCount);
     vkGetSwapchainImagesKHR(device, swapchain, &imageCount, pImage);
     createImageView();
-    createLayout();
+    createDescriptorSetLayout();
+    CHECK_NULL(setLayout, "setLayout");
+    createLayout(setLayout);
     CHECK_NULL(layout, "layout");
     createRenderPass();
     CHECK_NULL(renderPass, "renderPass");
@@ -60,8 +62,10 @@ void Init(SDL_Window *window)
     CHECK_NULL(presentFinishSem, "presentFinishSem");
     createFench(&fench);
     CHECK_NULL(fench, "fench");
+
+    // vertexBuffer
     createVertices();
-    createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, &vertexBuff);
+    createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(vertices), &vertexBuff);
     CHECK_NULL(vertexBuff, "vertexBuff");
     allocateMem(vertexBuff, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexMem);
     CHECK_NULL(vertexMem, "vertexMem");
@@ -70,7 +74,7 @@ void Init(SDL_Window *window)
     vkMapMemory(device, vertexMem, 0, sizeof(vertices), 0, &data);
     memcpy(data, vertices, sizeof(vertices));
     vkUnmapMemory(device, vertexMem);
-    createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &deviceBuff);
+    createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, sizeof(vertices), &deviceBuff);
     CHECK_NULL(deviceBuff, "deviceBuff");
     allocateMem(deviceBuff, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &deviceMem);
     CHECK_NULL(deviceMem, "deviceMem");
@@ -104,9 +108,9 @@ void Init(SDL_Window *window)
     WaitIdle();
     vkFreeCommandBuffers(device, cmdPool, 1, &transferBuffer);
 
-    //indexBuff
+    // indexBuff
     createIndices();
-    createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, &indexBuff);
+    createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, sizeof(indices), &indexBuff);
     CHECK_NULL(indexBuff, "indexBuff");
     allocateMem(indexBuff, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &indexMem);
     CHECK_NULL(indexMem, "indexMem");
@@ -115,9 +119,51 @@ void Init(SDL_Window *window)
     vkMapMemory(device, indexMem, 0, sizeof(indices), 0, &indexData);
     memcpy(indexData, indices, sizeof(indices));
     vkUnmapMemory(device, indexMem);
+
+    // uniform buffer
+    createUniform();
+    createBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(ubo), &uniformBuff);
+    CHECK_NULL(uniformBuff, "uniformBuff");
+    allocateMem(uniformBuff, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &uniformMem);
+    CHECK_NULL(uniformMem, "uniformMem");
+    vkBindBufferMemory(device, uniformBuff, uniformMem, 0);
+    void *uniformData;
+    vkMapMemory(device, uniformMem, 0, sizeof(ubo), 0, &uniformData);
+    memcpy(uniformData, &ubo, sizeof(ubo));
+    vkUnmapMemory(device, uniformMem);
+
+    // descriptorSet
+    createDescriptorPool();
+    CHECK_NULL(desPool, "desPool");
+    allocateDescriptorSet(desPool, setLayout);
+    CHECK_NULL(set, "set");
+
+    VkDescriptorBufferInfo bufferInfo;
+    bufferInfo.buffer = uniformBuff;
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(ubo);
+
+    VkWriteDescriptorSet writeSet;
+    writeSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    writeSet.pNext = NULL;
+    writeSet.dstSet = set;
+    writeSet.dstBinding = 0;
+    writeSet.dstArrayElement = 0;
+    writeSet.descriptorCount = 1;
+    writeSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    writeSet.pImageInfo = NULL;
+    writeSet.pBufferInfo = &bufferInfo;
+    writeSet.pTexelBufferView = NULL;
+
+    vkUpdateDescriptorSets(device, 1, &writeSet, 0, NULL);
 }
 void Quit()
 {
+    vkFreeDescriptorSets(device, desPool, 1, &set);
+    vkDestroyDescriptorSetLayout(device,setLayout,NULL);
+    vkDestroyDescriptorPool(device, desPool, NULL);
+    vkFreeMemory(device, uniformMem, NULL);
+    vkDestroyBuffer(device, uniformBuff, NULL);
     vkFreeMemory(device, indexMem, NULL);
     vkDestroyBuffer(device, indexBuff, NULL);
     vkFreeMemory(device, deviceMem, NULL);
@@ -564,16 +610,38 @@ void createImageView()
         vkCreateImageView(device, &info, NULL, pImageView + i);
     }
 }
-void createLayout()
+void createDescriptorSetLayout()
 {
+    VkDescriptorSetLayoutBinding binding;
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    binding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    info.bindingCount = 1;
+    info.pBindings = &binding;
+    vkCreateDescriptorSetLayout(device, &info, NULL, &setLayout);
+}
+void createLayout(VkDescriptorSetLayout setLayout)
+{
+    VkPushConstantRange range;
+    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    range.offset = 0;
+    range.size = sizeof(float);
+
     VkPipelineLayoutCreateInfo info;
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     info.pNext = NULL;
     info.flags = 0;
-    info.setLayoutCount = 0;
-    info.pSetLayouts = NULL;
-    info.pushConstantRangeCount = 0;
-    info.pPushConstantRanges = NULL;
+    info.setLayoutCount = 1;
+    info.pSetLayouts = &setLayout;
+    info.pushConstantRangeCount = 1;
+    info.pPushConstantRanges = &range;
     vkCreatePipelineLayout(device, &info, NULL, &layout);
 }
 void createRenderPass()
@@ -693,9 +761,14 @@ void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
     }
     vkCmdBeginRenderPass(buff, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
     VkDeviceSize size = (uint64_t)0;
     vkCmdBindVertexBuffers(buff, 0, 1, &deviceBuff, &size);
     vkCmdBindIndexBuffer(buff, indexBuff, 0, VK_INDEX_TYPE_UINT16);
+    uint32_t offsetSize = 0;
+    vkCmdBindDescriptorSets(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &set, 0, &offsetSize);
+    float c = 0.5;
+    vkCmdPushConstants(buff, layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(c), &c);
     vkCmdDrawIndexed(buff, 6, 1, 0, 0, 0);
     vkCmdEndRenderPass(buff);
     vkEndCommandBuffer(buff);
@@ -751,6 +824,103 @@ void createIndices()
     indices[4] = 2;
     indices[5] = 3;
 }
+void createUniform()
+{
+    // float left = 0, right = 800, top = 600, bottom = 0, near = 1, far = -1;
+    // ubo.project[0] = 2 / (right - left);
+    // ubo.project[1] = 0;
+    // ubo.project[2] = 0;
+    // ubo.project[3] = -(right + left) / (right - left);
+    // ubo.project[4] = 0;
+    // ubo.project[5] = 2 / (top - bottom);
+    // ubo.project[6] = 0;
+    // ubo.project[7] = -(bottom + top) / (top - bottom);
+    // ubo.project[8] = 0;
+    // ubo.project[9] = 0;
+    // ubo.project[10] = 2 / (near - far);
+    // ubo.project[11] = -(near + far) / (near - far);
+    // ubo.project[12] = 0;
+    // ubo.project[13] = 0;
+    // ubo.project[14] = 0;
+    // ubo.project[15] = 1;
+    
+    ubo.project[0] = 1;
+    ubo.project[1] = 0;
+    ubo.project[2] = 0;
+    ubo.project[3] = 0;
+    ubo.project[4] = 0;
+    ubo.project[5] = 1;
+    ubo.project[6] = 0;
+    ubo.project[7] = 0;
+    ubo.project[8] = 0;
+    ubo.project[9] = 0;
+    ubo.project[10] = 1;
+    ubo.project[11] = 0;
+    ubo.project[12] = 0;
+    ubo.project[13] = 0;
+    ubo.project[14] = 0;
+    ubo.project[15] = 1;
+
+    ubo.view[0] = 1;
+    ubo.view[1] = 0;
+    ubo.view[2] = 0;
+    ubo.view[3] = 0;
+    ubo.view[4] = 0;
+    ubo.view[5] = 1;
+    ubo.view[6] = 0;
+    ubo.view[7] = 0;
+    ubo.view[8] = 0;
+    ubo.view[9] = 0;
+    ubo.view[10] = 1;
+    ubo.view[11] = 0;
+    ubo.view[12] = 0;
+    ubo.view[13] = 0;
+    ubo.view[14] = 0;
+    ubo.view[15] = 1;
+
+    ubo.model[0] = 1;
+    ubo.model[1] = 0;
+    ubo.model[2] = 0;
+    ubo.model[3] = 0;
+    ubo.model[4] = 0;
+    ubo.model[5] = 1;
+    ubo.model[6] = 0;
+    ubo.model[7] = 0;
+    ubo.model[8] = 0;
+    ubo.model[9] = 0;
+    ubo.model[10] = 1;
+    ubo.model[11] = 0;
+    ubo.model[12] = 0;
+    ubo.model[13] = 0;
+    ubo.model[14] = 0;
+    ubo.model[15] = 1;
+}
+void createDescriptorPool()
+{
+    VkDescriptorPoolSize size;
+    size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    size.descriptorCount = 1;
+
+    VkDescriptorPoolCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    info.maxSets = imageCount;
+    info.poolSizeCount = 1;
+    info.pPoolSizes = &size;
+
+    vkCreateDescriptorPool(device, &info, NULL, &desPool);
+}
+void allocateDescriptorSet(VkDescriptorPool pool, VkDescriptorSetLayout setLayout)
+{
+    VkDescriptorSetAllocateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    info.pNext = NULL;
+    info.descriptorPool = pool;
+    info.descriptorSetCount = 1;
+    info.pSetLayouts = &setLayout;
+    vkAllocateDescriptorSets(device, &info, &set);
+}
 void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes)
 {
     bindingDes->binding = 0;
@@ -781,13 +951,13 @@ int clamp(int value, int min, int max)
     }
     return value;
 }
-void createBuffer(VkBufferUsageFlagBits flag, VkBuffer *buf)
+void createBuffer(VkBufferUsageFlagBits flag, uint64_t size, VkBuffer *buf)
 {
     VkBufferCreateInfo info;
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     info.pNext = NULL;
     info.flags = 0;
-    info.size = sizeof(vertices);
+    info.size = size;
     info.usage = flag;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.queueFamilyIndexCount = 1;
