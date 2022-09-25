@@ -7,6 +7,7 @@
     {                                  \
         printf("%s is NULL \n", name); \
     }
+
 void Init(SDL_Window *window)
 {
     // get extensions
@@ -59,9 +60,21 @@ void Init(SDL_Window *window)
     CHECK_NULL(presentFinishSem, "presentFinishSem");
     createFench(&fench);
     CHECK_NULL(fench, "fench");
+    createVertices();
+    createVertexBuff(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, &vertexBuff);
+    CHECK_NULL(vertexBuff, "vertexBuff");
+    allocateMem(vertexBuff, &vertexMem);
+    CHECK_NULL(vertexMem, "vertexMem");
+    vkBindBufferMemory(device, vertexBuff, vertexMem, 0);
+    void *data;
+    vkMapMemory(device, vertexMem, 0, sizeof(vertices), 0, &data);
+    memcpy(data, vertices, sizeof(vertices));
+    vkUnmapMemory(device, vertexMem);
 }
 void Quit()
 {
+    vkFreeMemory(device, vertexMem, NULL);
+    vkDestroyBuffer(device, vertexBuff, NULL);
     vkDestroyFence(device, fench, NULL);
     vkDestroySemaphore(device, imageAvaliableSem, NULL);
     vkDestroySemaphore(device, presentFinishSem, NULL);
@@ -88,14 +101,20 @@ void Quit()
 }
 void CreatePipeline(VkShaderModule vertexShader, VkShaderModule fragShader)
 {
+
+    VkVertexInputBindingDescription inputBindDes;
+    setVertexInputBindingDescription(&inputBindDes);
+    VkVertexInputAttributeDescription attrDes[2];
+    setVertexInputAttrDescription(attrDes);
+
     VkPipelineVertexInputStateCreateInfo vertexInputInfo;
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.pNext = NULL;
     vertexInputInfo.flags = 0;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = NULL;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = NULL;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &inputBindDes;
+    vertexInputInfo.vertexAttributeDescriptionCount = 2;
+    vertexInputInfo.pVertexAttributeDescriptions = attrDes;
 
     VkPipelineInputAssemblyStateCreateInfo inputAsmInfo;
     inputAsmInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -625,6 +644,8 @@ void recordCmd(VkCommandBuffer buff, VkFramebuffer fbo)
     }
     vkCmdBeginRenderPass(buff, &renderPassBegin, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(buff, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    VkDeviceSize size = (uint64_t)0;
+    vkCmdBindVertexBuffers(buff, 0, 1, &vertexBuff, &size);
     vkCmdDraw(buff, 3, 1, 0, 0);
     vkCmdEndRenderPass(buff);
     vkEndCommandBuffer(buff);
@@ -645,6 +666,44 @@ void createFench(VkFence *fen)
     info.flags = 0;
     vkCreateFence(device, &info, NULL, fen);
 }
+void createVertices()
+{
+    vertices[0].position.x = -0.5;
+    vertices[0].position.y = -0.5;
+    vertices[0].color.r = 1;
+    vertices[0].color.g = 0;
+    vertices[0].color.b = 0;
+
+    vertices[1].position.x = 0.5;
+    vertices[1].position.y = -0.5;
+    vertices[1].color.r = 0;
+    vertices[1].color.g = 1;
+    vertices[1].color.b = 0;
+
+    vertices[2].position.x = 0;
+    vertices[2].position.y = 0.5;
+    vertices[2].color.r = 0;
+    vertices[2].color.g = 0;
+    vertices[2].color.b = 1;
+}
+void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes)
+{
+    bindingDes->binding = 0;
+    bindingDes->stride = sizeof(Vertex);
+    bindingDes->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+}
+void setVertexInputAttrDescription(VkVertexInputAttributeDescription *attrDes)
+{
+    attrDes[0].binding = 0;
+    attrDes[0].location = 0;
+    attrDes[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attrDes[0].offset = offsetof(Vertex, position);
+
+    attrDes[1].binding = 0;
+    attrDes[1].location = 1;
+    attrDes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrDes[1].offset = offsetof(Vertex, color);
+}
 int clamp(int value, int min, int max)
 {
     if (value < min)
@@ -656,4 +715,42 @@ int clamp(int value, int min, int max)
         value = max;
     }
     return value;
+}
+void createVertexBuff(VkBufferUsageFlagBits flag, VkBuffer *buf)
+{
+    VkBufferCreateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    info.pNext = NULL;
+    info.flags = 0;
+    info.size = sizeof(vertices);
+    info.usage = flag;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info.queueFamilyIndexCount = 1;
+    info.pQueueFamilyIndices = &queueIndices.graphicsIndices;
+    vkCreateBuffer(device, &info, NULL, buf);
+}
+void queryMemInfo(VkBuffer buf, VkMemoryPropertyFlagBits flag)
+{
+    VkPhysicalDeviceMemoryProperties physicalProp;
+    vkGetPhysicalDeviceMemoryProperties(phyDevice, &physicalProp);
+    VkMemoryRequirements memReq;
+    vkGetBufferMemoryRequirements(device, buf, &memReq);
+    memReqInfo.size = memReq.size;
+    for (int i = 0; i < physicalProp.memoryTypeCount; ++i)
+    {
+        if ((memReq.memoryTypeBits & (1 << i)) && (physicalProp.memoryTypes[i].propertyFlags & flag))
+        {
+            memReqInfo.index = i;
+        }
+    }
+}
+void allocateMem(VkBuffer buf, VkDeviceMemory *mem)
+{
+    queryMemInfo(buf, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    VkMemoryAllocateInfo info;
+    info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    info.pNext = NULL;
+    info.allocationSize = memReqInfo.size;
+    info.memoryTypeIndex = memReqInfo.index;
+    vkAllocateMemory(device, &info, NULL, mem);
 }

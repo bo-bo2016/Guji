@@ -20,6 +20,27 @@ typedef struct SwapchainRequiredInfo
     int imageCount;
 } SwapchainRequiredInfo;
 
+typedef struct Vec2
+{
+    float x, y;
+} Vec2;
+
+typedef struct Color
+{
+    float r, g, b;
+} Color;
+
+typedef struct Vertex
+{
+    Vec2 position;
+    Color color;
+} Vertex;
+typedef struct MemRequiredInfo
+{
+    int index;
+    size_t size;
+} MemRequiredInfo;
+
 VkInstance instance;
 VkSurfaceKHR surface;
 VkPhysicalDevice phyDevice;
@@ -43,6 +64,10 @@ VkCommandBuffer cmdBuff;
 VkSemaphore imageAvaliableSem;
 VkSemaphore presentFinishSem;
 VkFence fench;
+VkBuffer vertexBuff;
+VkDeviceMemory vertexMem;
+MemRequiredInfo memReqInfo;
+Vertex vertices[3];
 
 void Init(SDL_Window *window);
 void Quit();
@@ -67,5 +92,11 @@ void createCmdBuff();
 void recordCmd(VkCommandBuffer cmdBuff, VkFramebuffer fbo);
 void createSemaphore();
 void createFench();
+void createVertices();
+void setVertexInputBindingDescription(VkVertexInputBindingDescription *bindingDes);
+void setVertexInputAttrDescription(VkVertexInputAttributeDescription *attrDes);
+void createVertexBuff(VkBufferUsageFlagBits flag,VkBuffer *buf);
+void queryMeminfo(VkBuffer buf,VkMemoryPropertyFlagBits flag);
+void allocateMem(VkBuffer buf,VkDeviceMemory *mem);
 int clamp(int value, int min, int max);
 #endif
