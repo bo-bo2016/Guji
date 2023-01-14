@@ -1,0 +1,4 @@
+git password: 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
+
+cmake help:
+* https://www.cnblogs.com/ybqjymy/p/13409050.html
