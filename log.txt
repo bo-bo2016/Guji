@@ -1,5 +1,5 @@
 # infos
-git password: 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
+git password: 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
 
 cmake help:
 * https://www.cnblogs.com/ybqjymy/p/13409050.html
