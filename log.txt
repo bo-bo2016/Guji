@@ -10,4 +10,4 @@ TODO:
 * popup a sample window
 
 2023.3.26 Sun
-vim "jump-motion":Ctrl+O,Ctrl+L
+vim "jump-motion":Ctrl+O,Ctrl+I
