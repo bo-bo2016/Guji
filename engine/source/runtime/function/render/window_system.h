@@ -1,3 +1,2 @@
-#include <GLFW/glfw3.h>
 
-void initilize();
+void initialize();

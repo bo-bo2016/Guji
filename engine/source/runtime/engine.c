@@ -1,10 +1,7 @@
-#include "runtime/engine.h"
+#include "engine.h"
+#include "function/render/window_system.h"
 
-void startEngine(){}
-void shutdownEngine(){}
-void initialize(){}
-void clear(){}
-void run()
+void startEngine()
 {
-	
+	initialize();
 }
