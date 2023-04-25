@@ -14,3 +14,6 @@ vim "jump-motion":Ctrl+O,Ctrl+I
 
 2023.4.2 Sun
 complie success,can open/close window
+
+2023.4.25 Tue.
+git config --global alias.lg "log --color --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
