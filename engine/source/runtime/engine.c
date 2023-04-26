@@ -4,4 +4,6 @@
 void startEngine()
 {
 	initialize();
+	mainLoop();
+	cleanup();
 }
