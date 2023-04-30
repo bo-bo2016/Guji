@@ -17,7 +17,7 @@ void initialize()
 	window = glfwCreateWindow(800,600,"guji",NULL,NULL);
 	while(!glfwWindowShouldClose(window)){
 		glfwPollEvents();
-//		drawFrame();
+		drawFrame();
 	}
 	glfwDestroyWindow(window);
 	glfwTerminate();
