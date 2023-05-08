@@ -3,7 +3,5 @@
 
 void startEngine()
 {
-	initialize();
-	mainLoop();
-	cleanup();
+		run();
 }
