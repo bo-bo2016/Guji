@@ -6,7 +6,6 @@
 #include "function/render/vulkanAPI.h"
 
 void run(){
-		initVulkan();
 		if(!glfwInit())
 		{
 				printf("fail to initialize GLFW");
@@ -15,6 +14,7 @@ void run(){
 		glfwWindowHint(GLFW_CLIENT_API,GLFW_NO_API);
 		GLFWwindow* window;
 		window = glfwCreateWindow(800,600,"guji",NULL,NULL);
+		initVulkan(window);
 		while(!glfwWindowShouldClose(window)){
 				glfwPollEvents();
 				drawFrame();
