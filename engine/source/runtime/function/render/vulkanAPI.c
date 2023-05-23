@@ -17,7 +17,7 @@ typedef struct SwapchainRequiredInfo{
 } SwapchainRequiredInfo;
 
 const char* validationLayers[]={"VK_LAYER_KHRONOS_validation"};
-const char* deviceExtensions[]={"VK_KHR_SWAPCHAIN_EXTENSION_NAME"};
+const char* deviceExtensions[]={VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 //#ifdef NDEBUG
 //const bool enableValidationLayers=false;
 //#else
@@ -155,7 +155,6 @@ void createLogicalDevice(){
 	}
 }
 void createSwapChain(){
-	return;
 	SwapchainRequiredInfo requireInfo;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &requireInfo.capabilities);
 	int formatCount = 0;
@@ -205,7 +204,7 @@ void createSwapChain(){
 	info.imageExtent = requireInfo.extent;
 	info.imageArrayLayers = 1;
 	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	if (queueFamilyIndices.graphicsFamily= queueFamilyIndices.presentFamily)
+	if (queueFamilyIndices.graphicsFamily== queueFamilyIndices.presentFamily)
 	{
 		int indices[] = {queueFamilyIndices.graphicsFamily};
 		info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
