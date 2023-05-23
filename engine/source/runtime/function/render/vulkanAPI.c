@@ -8,6 +8,14 @@ typedef struct QueueFamilyIndices
 	int graphicsFamily;
 	int presentFamily;
 } QueueFamilyIndices;
+typedef struct SwapchainRequiredInfo{
+	 VkSurfaceCapabilitiesKHR  capabilities;
+	VkExtent2D extent;
+	VkSurfaceFormatKHR format;
+	VkPresentModeKHR presentMode;
+	int imageCount;
+} SwapchainRequiredInfo;
+
 const char* validationLayers[]={"VK_LAYER_KHRONOS_validation"};
 const char* deviceExtensions[]={"VK_KHR_SWAPCHAIN_EXTENSION_NAME"};
 //#ifdef NDEBUG
@@ -24,6 +32,18 @@ VkQueue presentQueue;
 VkSwapchainKHR swapChain;
 QueueFamilyIndices queueFamilyIndices;
 
+int clamp(int value, int min, int max)
+{
+    if (value < min)
+    {
+        value = min;
+    }
+    else if (value > max)
+    {
+        value = max;
+    }
+    return value;
+}
 int checkValidationLayerSupport(){
 	return 1;
 }
@@ -86,7 +106,7 @@ void createLogicalDevice(){
 		}
 	}
 	unsigned int count=queueFamilyIndices.graphicsFamily==queueFamilyIndices.presentFamily?1:2;
-	VkDeviceQueueCreateInfo queueInfos[queueFamilyCount];
+	VkDeviceQueueCreateInfo queueInfos[count];
 	float priority=1.0;
 	if(count==1){
 		VkDeviceQueueCreateInfo info;
@@ -131,10 +151,83 @@ void createLogicalDevice(){
 	info.flags=0;
 
 	if(vkCreateDevice(physicalDevice,&info,NULL,&device)!=VK_SUCCESS){
-		printf("failed to create logical device!");
+		printf("failed to create logical device!\n");
 	}
 }
-void createSwapChain(){}
+void createSwapChain(){
+	return;
+	SwapchainRequiredInfo requireInfo;
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &requireInfo.capabilities);
+	int formatCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, NULL);
+	VkSurfaceFormatKHR formats[formatCount];
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats);
+	requireInfo.format = formats[0];
+	for (int i = 0; i < formatCount; ++i)
+	{
+		if (formats[i].format == VK_FORMAT_R8G8B8_SRGB ||
+				formats[i].format == VK_FORMAT_B8G8R8_SRGB)
+		{
+			requireInfo.format = formats[i];
+			break;
+		}
+	}
+	requireInfo.extent.width = clamp(800,
+			requireInfo.capabilities.minImageExtent.width,
+			requireInfo.capabilities.maxImageExtent.width);
+	requireInfo.extent.height = clamp(600,
+			requireInfo.capabilities.minImageExtent.height,
+			requireInfo.capabilities.maxImageExtent.height);
+	requireInfo.imageCount = clamp(2,
+			requireInfo.capabilities.minImageCount,
+			requireInfo.capabilities.maxImageCount);
+	int modeCount;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, NULL);
+	VkPresentModeKHR modes[modeCount];
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, modes);
+	requireInfo.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	for (int i = 0; i < modeCount; ++i)
+	{
+		if (modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		{
+			requireInfo.presentMode = modes[i];
+			break;
+		}
+	}
+	VkSwapchainCreateInfoKHR info;
+	info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	info.pNext = NULL;
+	info.flags = 0;
+	info.surface = surface;
+	info.minImageCount = requireInfo.imageCount;
+	info.imageFormat = requireInfo.format.format;
+	info.imageColorSpace = requireInfo.format.colorSpace;
+	info.imageExtent = requireInfo.extent;
+	info.imageArrayLayers = 1;
+	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	if (queueFamilyIndices.graphicsFamily= queueFamilyIndices.presentFamily)
+	{
+		int indices[] = {queueFamilyIndices.graphicsFamily};
+		info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		info.queueFamilyIndexCount = 1;
+		info.pQueueFamilyIndices = indices;
+	}
+	else
+	{
+		int indices[] = {queueFamilyIndices.graphicsFamily, queueFamilyIndices.presentFamily};
+		info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		info.queueFamilyIndexCount = 2;
+		info.pQueueFamilyIndices = indices;
+	}
+	info.preTransform = requireInfo.capabilities.currentTransform;
+	info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	info.presentMode = requireInfo.presentMode;
+	info.clipped = VK_TRUE;
+	info.oldSwapchain = NULL;
+	if(vkCreateSwapchainKHR(device, &info, NULL, &swapChain)!=VK_SUCCESS){
+		printf("failed to create swap chain!");
+	}
+}
 void createImageViews(){}
 void createRenderPass(){}
 void createGraphicsPipeline(){}
