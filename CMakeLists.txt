@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(guji)
 set(CMAKE_C_STANDARD 99)
-set(SRC_LIST main.c engine/source/runtime/engine.c engine/source/runtime/function/render/window_system.c engine/source/runtime/function/render/vulkanAPI.c)
+set(SRC_LIST main.c engine/source/runtime/engine.c engine/source/runtime/function/render/window_system.c engine/source/runtime/function/render/renderer.c)
 add_executable(${PROJECT_NAME} ${SRC_LIST})
 target_include_directories(${PROJECT_NAME} PRIVATE engine/source/runtime engine/dependencies/VulkanSDK/include)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
