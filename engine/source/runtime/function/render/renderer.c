@@ -79,6 +79,7 @@ void Init(GLFWwindow *window)
 	createSwapchain();
 	CHECK_NULL(swapchain, "swapchain");
 	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, NULL);
+	imageCount=2;
 	pImage = malloc(sizeof(VkImage) * imageCount);
 	vkGetSwapchainImagesKHR(device, swapchain, &imageCount, pImage);
 	createImageView();
@@ -200,8 +201,8 @@ void Init(GLFWwindow *window)
 
 	//load shader
 	printf("start laod shader\n");
-	CreateShaderModule("renderer.h",shaderModules);
-	CreateShaderModule("./frag.spv",shaderModules+1);
+	CreateShaderModule("vert.spv",shaderModules);
+	CreateShaderModule("frag.spv",shaderModules+1);
 
 
 	CreatePipeline(shaderModules[0],shaderModules[1]);
@@ -739,6 +740,7 @@ void createRenderPass()
 }
 void createFramebuffs()
 {
+	printf("imageViewCount=%d\n",imageViewCount);
 	for (int i = 0; i < imageViewCount; ++i)
 	{
 		VkFramebufferCreateInfo info;
