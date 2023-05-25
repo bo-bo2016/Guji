@@ -5,3 +5,8 @@ this engine has 5 layers:
 * resource manager
 * core
 * plamform
+
+
+properties:
+* ci/cd
+* ai
