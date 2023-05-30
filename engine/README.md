@@ -10,3 +10,12 @@ this engine has 5 layers:
 properties:
 * ci/cd
 * ai
+* cross compiling
+* CLI
+* CLI
+* CLI
+* CLI
+* CLI
+* CLI
+* CLI
+* CLI
